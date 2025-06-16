@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light Theme Variables - White Background with Industrial Navy Text */
+  --background-light: 255 100% 100%; /* #ffffff */
+  --foreground-light: 220 44% 22%; /* #1d3156 - Industrial Navy for text */
+  
+  --card-light: 200 20% 98%; /* Lighter Gray for cards, can be #ffffff too */
+  --card-foreground-light: 220 44% 22%; /* Industrial Navy for card text */
+  
+  --popover-light: 255 100% 100%;
+  --popover-foreground-light: 220 44% 22%;
+
+  /* Primary color for accents, buttons, links on a white background */
+  --primary-light: 220 90% 55%; /* Professional Blue */
+  --primary-foreground-light: 0 0% 100%; /* White text on primary buttons */
+
+  --secondary-light: 210 15% 90%; /* Light Gray Blue */
+  --secondary-foreground-light: 220 90% 55%; /* Professional Blue text on secondary elements */
+
+  --muted-light: 210 15% 95%; /* Very Light Gray */
+  --muted-foreground-light: 210 10% 45%; /* Medium Gray for muted text */
+
+  --accent-light: 210 15% 90%; 
+  --accent-foreground-light: 220 90% 55%;
+
+  --destructive-light: 0 70% 50%; /* Softer Red */
+  --destructive-foreground-light: 0 0% 100%; 
+
+  --border-light: 210 15% 88%; /* Light Gray for borders */
+  --input-light: 210 15% 96%; /* Very light gray for input backgrounds, or white */
+  --input-foreground-light: 220 44% 22%; /* Navy text for inputs */
+  --ring-light: 220 90% 65%; 
+
+  /* Dark Theme Variables (can remain as is or be adjusted if you want a different dark mode aesthetic) */
+  --background-dark: 222.2 84% 4.9%; 
+  --foreground-dark: 210 40% 98%; 
+  --card-dark: 220 40% 9%; 
+  --card-foreground-dark: 210 40% 90%; 
+  --popover-dark: 222.2 84% 4.9%; 
+  --popover-foreground-dark: 210 40% 98%; 
+  --primary-dark: 217.2 91.2% 59.8%; 
+  --primary-foreground-dark: 222.2 47.4% 11.2%; 
+  --secondary-dark: 217.2 32.6% 17.5%; 
+  --secondary-foreground-dark: 210 40% 98%; 
+  --muted-dark: 217.2 32.6% 17.5%; 
+  --muted-foreground-dark: 215 20.2% 65.1%; 
+  --accent-dark: 217.2 32.6% 25%; 
+  --accent-foreground-dark: 210 40% 98%; 
+  --destructive-dark: 0 62.8% 30.6%; 
+  --destructive-foreground-dark: 210 40% 98%; 
+  --border-dark: 217.2 32.6% 17.5%; 
+  --input-dark: 217.2 32.6% 17.5%; 
+  --ring-dark: 217.2 91.2% 59.8%; 
+  
+  --radius: 0.5rem; 
+}
+
+/* Default to light theme with white background and navy text */
+html:not(.dark) {
+  --background: var(--background-light);
+  --foreground: var(--foreground-light);
+  --card: var(--card-light);
+  --card-foreground: var(--card-foreground-light);
+  --popover: var(--popover-light);
+  --popover-foreground: var(--popover-foreground-light);
+  --primary: var(--primary-light);
+  --primary-foreground: var(--primary-foreground-light);
+  --secondary: var(--secondary-light);
+  --secondary-foreground: var(--secondary-foreground-light);
+  --muted: var(--muted-light);
+  --muted-foreground: var(--muted-foreground-light);
+  --accent: var(--accent-light);
+  --accent-foreground: var(--accent-foreground-light);
+  --destructive: var(--destructive-light);
+  --destructive-foreground: var(--destructive-foreground-light);
+  --border: var(--border-light);
+  --input: var(--input-light);
+  --ring: var(--ring-light);
+}
+
+.dark {
+  --background: var(--background-dark);
+  --foreground: var(--foreground-dark);
+  --card: var(--card-dark);
+  --card-foreground: var(--card-foreground-dark);
+  --popover: var(--popover-dark);
+  --popover-foreground: var(--popover-foreground-dark);
+  --primary: var(--primary-dark);
+  --primary-foreground: var(--primary-foreground-dark);
+  --secondary: var(--secondary-dark);
+  --secondary-foreground: var(--secondary-foreground-dark);
+  --muted: var(--muted-dark);
+  --muted-foreground: var(--muted-foreground-dark);
+  --accent: var(--accent-dark);
+  --accent-foreground: var(--accent-foreground-dark);
+  --destructive: var(--destructive-dark);
+  --destructive-foreground: var(--destructive-foreground-dark);
+  --border: var(--border-dark);
+  --input: var(--input-dark);
+  --ring: var(--ring-dark);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  html:not(.dark) a {
+     /* @apply text-primary hover:text-primary/80; */
+  }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-purple-500 to-sky-500;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glass-effect {
+    @apply bg-card/80 backdrop-blur-md border border-border/30 shadow-lg;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  .card-hover:hover {
+    @apply transform -translate-y-1 shadow-2xl;
+  }
+
+  .bg-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    z-index: -100;
+    transform: translateX(-50%) translateY(-50%);
+    background-size: cover;
+    transition: 1s opacity;
+  }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
