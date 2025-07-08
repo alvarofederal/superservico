@@ -2,7 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { Wrench, ClipboardList, FileText, Users, ArrowRight, Package, BarChart3 } from 'lucide-react';
+import { Wrench, ClipboardList, FileText, Users, ArrowRight, Package, BarChart3, Rss } from 'lucide-react';
+import PricingTiers from '@/components/pricing/PricingTiers';
 
 const FeatureCard = ({ icon, title, description, delay }) => (
   <motion.div
@@ -26,7 +27,6 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-[#1d3156] overflow-x-hidden">
-      {/* Navbar: bg white, logo e texto #1d3156 */}
       <header className="sticky top-0 z-50 bg-white shadow-md">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
@@ -35,9 +35,15 @@ const LandingPage = () => {
             </div>
             <h1 className="text-2xl font-bold text-[#1d3156]">Super Serviço</h1>
           </Link>
-          <nav className="space-x-2 sm:space-x-4">
+          <nav className="flex items-center space-x-1 sm:space-x-2">
+            <Link to="/blog">
+              <Button variant="ghost" className="text-[#1d3156] hover:bg-gray-100 text-xs sm:text-sm">
+                <Rss className="mr-0 sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Blog</span>
+              </Button>
+            </Link>
             <Link to="/login">
-              <Button variant="outline" className="text-[#1d3156] border-[#1d3156] hover:bg-[#1d3156] hover:text-white text-xs sm:text-sm">Login</Button>
+              <Button variant="outline" className="bg-white text-[#1d3156] border-blue-600 hover:bg-gray-100 text-xs sm:text-sm">Login</Button>
             </Link>
             <Link to="/register">
               <Button className="bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs sm:text-sm">Cadastre-se</Button>
@@ -47,20 +53,17 @@ const LandingPage = () => {
       </header>
 
       <main className="flex-grow">
-        {/* Hero Section: bg white, text #1d3156 */}
         <section className="py-20 md:py-32 text-center relative overflow-hidden bg-white">
-          {/* O vídeo pode precisar de ajustes de opacidade se for para ser sutil no fundo branco */}
-          <video autoPlay muted loop playsInline className="bg-video opacity-10"> {/* Opacidade ajustada */}
+          <video autoPlay muted loop playsInline className="bg-video opacity-10">
             <source src={videoUrl} type="video/mp4" />
             Seu navegador não suporta vídeo HTML5.
           </video>
-          {/* Removido o overlay azul escuro, a seção agora tem fundo branco */}
           <div className="container mx-auto px-6 relative z-10">
             <motion.h2 
               initial={{ opacity: 0, y: -30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: "easeOut" }}
-              className="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-6 text-[#1d3156]" // Texto azul
+              className="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-6 text-[#1d3156]"
             >
               Revolucione a Gestão de Manutenção
             </motion.h2>
@@ -68,7 +71,7 @@ const LandingPage = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-              className="text-lg sm:text-xl md:text-2xl text-gray-700 mb-10 max-w-3xl mx-auto" // Texto cinza escuro/azulado para contraste
+              className="text-lg sm:text-xl md:text-2xl text-gray-700 mb-10 max-w-3xl mx-auto"
             >
               Com o Super Serviço, otimize suas operações, reduza custos e maximize a eficiência dos seus equipamentos e serviços.
             </motion.p>
@@ -86,7 +89,6 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* Features Section: bg-gray-50, text #1d3156 */}
         <section id="features" className="py-16 md:py-24 bg-gray-50">
           <div className="container mx-auto px-6">
             <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4 text-[#1d3156]">Funcionalidades Poderosas</h2>
@@ -134,31 +136,17 @@ const LandingPage = () => {
           </div>
         </section>
         
-        {/* Optimize Section: bg-white, text #1d3156 */}
-        <section className="py-16 bg-white">
+        <section id="pricing" className="py-16 md:py-24 bg-white">
           <div className="container mx-auto px-6">
-            <h3 className="text-2xl sm:text-3xl font-bold text-center mb-12 text-[#1d3156]">Otimize Seus Processos Hoje Mesmo</h3>
-            <div className="grid md:grid-cols-3 gap-8 items-start text-center">
-              <motion.div initial={{ opacity:0, x: -50 }} whileInView={{ opacity:1, x: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.5, delay: 0.2 }} className="flex flex-col items-center">
-                <img  alt="Técnico industrial com tablet inspecionando maquinaria azul e branca em uma fábrica moderna e limpa" className="rounded-lg shadow-xl aspect-video object-cover w-full mx-auto mb-4" src="https://images.unsplash.com/photo-1538853250209-ca470484f575" />
-                <h4 className="text-xl font-semibold text-[#1d3156] mb-1 mt-2">Manutenção Proativa</h4>
-                <p className="text-sm text-gray-600">Agende e controle manutenções preventivas e preditivas para evitar falhas inesperadas.</p>
-              </motion.div>
-              <motion.div initial={{ opacity:0, y: 50 }} whileInView={{ opacity:1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.5, delay: 0.4 }} className="flex flex-col items-center">
-                <img  alt="Interface de software de gestão de serviços em um monitor, mostrando gráficos e listas em tons de azul e branco" className="rounded-lg shadow-xl aspect-video object-cover w-full mx-auto mb-4" src="https://images.unsplash.com/photo-1686061593213-98dad7c599b9" />
-                <h4 className="text-xl font-semibold text-[#1d3156] mb-1 mt-2">Fluxo de Serviço Ágil</h4>
-                <p className="text-sm text-gray-600">Desde a solicitação até a conclusão, gerencie cada etapa das suas ordens de serviço com eficiência.</p>
-              </motion.div>
-              <motion.div initial={{ opacity:0, x: 50 }} whileInView={{ opacity:1, x: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.5, delay: 0.6 }} className="flex flex-col items-center">
-                <img  alt="Engenheiro e cliente apertando as mãos em frente a um equipamento industrial, ambos sorrindo, com fundo branco e detalhes azuis" className="rounded-lg shadow-xl aspect-video object-cover w-full mx-auto mb-4" src="https://images.unsplash.com/photo-1679000265956-3bd0f356b2b3" />
-                <h4 className="text-xl font-semibold text-[#1d3156] mb-1 mt-2">Comunicação Transparente</h4>
-                <p className="text-sm text-gray-600">Mantenha seus clientes e equipe informados com atualizações automáticas e portal do cliente.</p>
-              </motion.div>
-            </div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4 text-[#1d3156]">Planos Flexíveis para Todos</h2>
+              <p className="text-base sm:text-lg text-gray-700 text-center mb-12 sm:mb-16 max-w-2xl mx-auto">
+                Escolha o plano que melhor se adapta ao tamanho e às necessidades da sua operação.
+              </p>
+              <PricingTiers lightTheme={true} />
           </div>
         </section>
 
-        {/* CTA Section: bg #1d3156, text white */}
+
         <section className="py-20 md:py-28 text-center bg-[#1d3156] text-white">
            <div className="container mx-auto px-6 relative z-10">
             <motion.h2 
@@ -195,16 +183,16 @@ const LandingPage = () => {
         </section>
       </main>
 
-      {/* Footer Sitemap: bg #f5f5f5, text #1d3156 */}
       <footer className="py-10 bg-[#f5f5f5] border-t border-gray-300">
         <div className="container mx-auto px-6 text-center text-[#1d3156]">
           <div className="mb-4 space-x-6">
             <Link to="/" className="hover:text-blue-600 text-sm font-medium">Home</Link>
             <a href="#features" className="hover:text-blue-600 text-sm font-medium">Funcionalidades</a>
+            <a href="#pricing" className="hover:text-blue-600 text-sm font-medium">Preços</a>
+            <Link to="/blog" className="hover:text-blue-600 text-sm font-medium">Blog</Link>
           </div>
         </div>
       </footer>
-      {/* Copyright Bar: bg #444444, text gray-300 */}
       <div className="bg-[#444444] py-4">
         <div className="container mx-auto px-6 text-center text-gray-300">
           <p className="text-sm">&copy; {currentYear} Super Serviço. Todos os direitos reservados.</p>

@@ -40,17 +40,17 @@ const CompanyDetails = ({ company, userProfile, onInviteUser, onRemoveUser, isSu
   }, []);
 
   useEffect(() => {
-    if (company?.id) {
-      fetchCompanyMembers(company.id);
+    if (company?.company_id) {
+      fetchCompanyMembers(company.company_id);
     } else {
       setCompanyMembers([]);
     }
-  }, [company?.id, fetchCompanyMembers]);
+  }, [company?.company_id, fetchCompanyMembers]);
 
   const handleInviteSubmit = async (formData) => {
     const success = await onInviteUser(formData);
     if (success) { 
-        fetchCompanyMembers(company.id); 
+        fetchCompanyMembers(company.company_id); 
         setIsInviteDialogOpen(false);
     }
   };
@@ -62,13 +62,13 @@ const CompanyDetails = ({ company, userProfile, onInviteUser, onRemoveUser, isSu
 
   if (!company) return null; 
 
-  const canManageCompany = company.owner_id === userProfile?.id || company.role_in_company === 'company_admin';
+  const canManageCompany = company.company_owner_id === userProfile?.id || ['company_admin', 'company_technician'].includes(company.user_role_in_company);
 
   return (
     <Card className="shadow-xl h-full">
       <CardHeader className="flex flex-row justify-between items-center">
         <div>
-          <CardTitle className="text-2xl">Gerenciar: {company.name}</CardTitle>
+          <CardTitle className="text-2xl">Gerenciar: {company.company_name}</CardTitle>
           <CardDescription>Adicione membros e gerencie configurações da empresa.</CardDescription>
         </div>
         {canManageCompany && (
@@ -80,10 +80,10 @@ const CompanyDetails = ({ company, userProfile, onInviteUser, onRemoveUser, isSu
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Convidar Novo Membro para {company.name}</DialogTitle>
+                <DialogTitle>Convidar Novo Membro para {company.company_name}</DialogTitle>
               </DialogHeader>
               <InviteUserForm 
-                companyId={company.id} 
+                companyId={company.company_id} 
                 onSubmit={handleInviteSubmit} 
                 onCancel={() => setIsInviteDialogOpen(false)} 
                 isSubmitting={isSubmitting} 

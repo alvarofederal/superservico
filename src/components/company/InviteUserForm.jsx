@@ -1,8 +1,8 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -38,13 +38,13 @@ const InviteUserForm = ({ companyId, onSubmit, onCancel, isSubmitting }) => {
                     </SelectContent>
                 </Select>
             </div>
-            <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button></DialogClose>
+            <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
                 <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Convidar Usuário
                 </Button>
-            </DialogFooter>
+            </div>
         </form>
     );
 };

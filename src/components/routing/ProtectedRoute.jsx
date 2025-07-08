@@ -1,10 +1,16 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { AUTH_STATES } from '@/context/AuthProvider.jsx';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute = ({ children, authState, userProfile }) => {
+  const location = useLocation();
+
   if (authState === AUTH_STATES.UNAUTHENTICATED) {
+    const currentPath = location.pathname + location.search;
+    if (!['/login', '/register', '/'].includes(location.pathname)) {
+      localStorage.setItem('redirectPathOnLogin', currentPath);
+    }
     return <Navigate to="/login" replace />;
   }
 

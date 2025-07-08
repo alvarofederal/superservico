@@ -1,287 +1,267 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, FileText, Edit, Loader2, Trash2, Send, AlertTriangle } from 'lucide-react';
+import { Plus, Search, FileText, Loader2, Lock, Archive, FolderArchive as Unarchive } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/hooks/useAuth.js';
+import { useLicense } from '@/hooks/useLicense.js';
+import ServiceRequestForm from '@/components/service-requests/ServiceRequestForm';
+import ServiceRequestCard from '@/components/service-requests/ServiceRequestCard';
+import ServiceRequestDetailsModal from '@/components/service-requests/ServiceRequestDetailsModal';
+import { logAction } from '@/services/logService.js';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-const urgencyLevels = { low: 'Baixa', medium: 'Média', high: 'Alta' };
-const urgencyColors = { low: 'bg-green-500 dark:bg-green-600', medium: 'bg-yellow-500 dark:bg-yellow-600', high: 'bg-red-500 dark:bg-red-600' };
-const statusLevels = { aberta: 'Aberta', 'em analise': 'Em Análise', convertida: 'Convertida', fechada: 'Fechada' };
-const statusColors = { aberta: 'bg-blue-500 dark:bg-blue-600', 'em analise': 'bg-purple-500 dark:bg-purple-600', convertida: 'bg-teal-500 dark:bg-teal-600', fechada: 'bg-gray-500 dark:bg-gray-600' };
+const ServiceRequestManager = () => {
+  const { userProfile, currentCompanyId, hasAccess } = useAuth();
+  const { limits } = useLicense();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-
-const ServiceRequestForm = ({ initialData, onSubmit, onCancel, equipments, isSubmitting }) => {
-  const [formData, setFormData] = useState(
-    initialData || {
-      title: '', description: '', requester_name: '', requester_contact: '',
-      equipment_id: null, urgency: 'medium', status: 'aberta'
-    }
-  );
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    } else {
-       setFormData({
-        title: '', description: '', requester_name: '', requester_contact: '',
-        equipment_id: null, urgency: 'medium', status: 'aberta'
-      });
-    }
-  }, [initialData]);
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmitForm = (e) => {
-    e.preventDefault();
-    if (!formData.title || !formData.requester_name) {
-      toast({ title: "Erro de Validação", description: "Título e Nome do Solicitante são obrigatórios.", variant: "destructive" });
-      return;
-    }
-    onSubmit(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmitForm} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
-        <div className="md:col-span-2">
-          <Label htmlFor="title">Título da Solicitação *</Label>
-          <Input id="title" value={formData.title} onChange={(e) => handleChange('title', e.target.value)} placeholder="Ex: Equipamento X parou de funcionar" required />
-        </div>
-        <div className="md:col-span-2">
-          <Label htmlFor="description">Descrição do Problema</Label>
-          <Textarea id="description" value={formData.description} onChange={(e) => handleChange('description', e.target.value)} placeholder="Detalhe o problema ou a necessidade..." />
-        </div>
-        <div>
-          <Label htmlFor="requester_name">Nome do Solicitante *</Label>
-          <Input id="requester_name" value={formData.requester_name} onChange={(e) => handleChange('requester_name', e.target.value)} placeholder="Ex: João Silva" required />
-        </div>
-        <div>
-          <Label htmlFor="requester_contact">Contato do Solicitante</Label>
-          <Input id="requester_contact" value={formData.requester_contact} onChange={(e) => handleChange('requester_contact', e.target.value)} placeholder="Ex: (99) 99999-9999 ou ramal 123" />
-        </div>
-        <div>
-          <Label htmlFor="equipment_id">Equipamento (Opcional)</Label>
-          <Select value={formData.equipment_id || ''} onValueChange={(value) => handleChange('equipment_id', value || null)}>
-            <SelectTrigger><SelectValue placeholder="Selecione um equipamento" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Nenhum</SelectItem>
-              {equipments.map(eq => (<SelectItem key={eq.id} value={eq.id}>{eq.name} - {eq.location}</SelectItem>))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="urgency">Urgência</Label>
-          <Select value={formData.urgency} onValueChange={(value) => handleChange('urgency', value)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.entries(urgencyLevels).map(([key, label]) => (
-                <SelectItem key={key} value={key}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-         {initialData && (
-          <div>
-            <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(statusLevels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
-      <DialogFooter className="pt-4">
-        <DialogClose asChild><Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button></DialogClose>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {initialData ? 'Atualizar Solicitação' : 'Criar Solicitação'}
-        </Button>
-      </DialogFooter>
-    </form>
-  );
-};
-
-const ServiceRequestCard = ({ request, onEdit, onDelete, onConvertToWorkOrder, getEquipmentName }) => {
-  return (
-    <Card className="glass-effect card-hover h-full flex flex-col">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 mr-2">
-            <CardTitle className="text-lg text-foreground truncate" title={request.title}>{request.title}</CardTitle>
-            <p className="text-sm text-muted-foreground">Solicitante: {request.requester_name}</p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => onEdit(request)} className="h-8 w-8 text-muted-foreground hover:text-primary"><Edit className="h-4 w-4" /></Button>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap mt-1">
-          <Badge variant="outline" className={`${statusColors[request.status]} text-primary-foreground border-0`}>{statusLevels[request.status]}</Badge>
-          <Badge variant="outline" className={`${urgencyColors[request.urgency]} text-primary-foreground border-0`}>{urgencyLevels[request.urgency]}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 flex-grow">
-        {request.description && (<p className="text-sm text-foreground line-clamp-3" title={request.description}>{request.description}</p>)}
-        {request.equipment_id && (<p className="text-sm"><span className="text-muted-foreground">Equipamento: </span><span className="text-foreground">{getEquipmentName(request.equipment_id)}</span></p>)}
-        {request.requester_contact && (<p className="text-sm"><span className="text-muted-foreground">Contato: </span><span className="text-foreground">{request.requester_contact}</span></p>)}
-        <p className="text-xs text-muted-foreground pt-1">Criado em: {new Date(request.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-      </CardContent>
-      <div className="p-4 border-t border-border/50 mt-auto space-y-2">
-        {request.status === 'aberta' || request.status === 'em analise' ? (
-          <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => onConvertToWorkOrder(request)}>
-            <Send className="h-4 w-4 mr-2" /> Converter para O.S.
-          </Button>
-        ) : (
-           <Button size="sm" className="w-full" disabled>
-             <Send className="h-4 w-4 mr-2" /> Convertida/Fechada
-           </Button>
-        )}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="w-full">
-              <Trash2 className="h-4 w-4 mr-2" /> Excluir
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir a solicitação "{request.title}"? Esta ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(request.id)}>Excluir</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    </Card>
-  );
-};
-
-const ServiceRequestManager = ({ serviceRequests: initialServiceRequests, setServiceRequests: setGlobalServiceRequests, equipments, onConvertToWorkOrder, userProfile }) => {
-  const [serviceRequests, setServiceRequests] = useState(initialServiceRequests || []);
+  const [view, setView] = useState('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterUrgency, setFilterUrgency] = useState('all');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [detailsRequest, setDetailsRequest] = useState(null);
 
-  useEffect(() => {
-    setServiceRequests(initialServiceRequests || []);
-  }, [initialServiceRequests]);
+  const { data: serviceRequests = [], isLoading, isError, error } = useQuery(
+    ['serviceRequests', currentCompanyId, showArchived],
+    async () => {
+      if (!currentCompanyId) return [];
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*, equipments(name, location)')
+        .eq('company_id', currentCompanyId)
+        .eq('is_archived', showArchived)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    { enabled: !!currentCompanyId }
+  );
 
-  const getEquipmentName = (equipmentId) => {
-    if (!equipments) return 'N/A';
-    const equipment = equipments.find(eq => eq.id === equipmentId);
-    return equipment?.name || 'N/A';
-  };
+  const { data: equipments = [] } = useQuery(
+    ['equipments', currentCompanyId],
+    async () => {
+      if (!currentCompanyId) return [];
+      const { data, error } = await supabase.from('equipments').select('id, name, location').eq('company_id', currentCompanyId);
+      if (error) {
+        toast({ title: 'Erro ao carregar equipamentos', description: error.message, variant: 'destructive' });
+        return [];
+      }
+      return data;
+    },
+    { enabled: !!currentCompanyId }
+  );
 
-  const filteredRequests = serviceRequests.filter(req => {
-    const title = req.title || "";
-    const description = req.description || "";
-    const requester = req.requester_name || "";
-    const equipmentName = req.equipment_id ? getEquipmentName(req.equipment_id).toLowerCase() : "";
+  const requestsLimit = limits.serviceRequests;
+  const isAtLimit = requestsLimit !== Infinity && serviceRequests.filter(r => !r.is_archived).length >= requestsLimit;
+  const canCreate = hasAccess('service_request_creation');
+  const canConvert = hasAccess('service_request_conversion');
+  const canEdit = hasAccess('service_request_management');
+  const canDelete = hasAccess('service_request_management');
+  const canArchive = hasAccess('service_request_management');
 
-    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         requester.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (req.equipment_id && equipmentName.includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = filterStatus === 'all' || req.status === filterStatus;
-    const matchesUrgency = filterUrgency === 'all' || req.urgency === filterUrgency;
-    return matchesSearch && matchesStatus && matchesUrgency;
-  });
-
-  const handleFormSubmit = async (formData) => {
-    setIsSubmitting(true);
-    try {
-      const { equipments, ...cleanFormData } = formData;
-
-      if (editingRequest) {
-        const { error } = await supabase.from('service_requests').update({ ...cleanFormData, updated_at: new Date().toISOString() }).eq('id', editingRequest.id);
-        if (error) throw error;
-        setGlobalServiceRequests();
-        toast({ title: "Sucesso!", description: "Solicitação de serviço atualizada." });
-      } else {
-        if (!userProfile) throw new Error("Perfil do usuário não encontrado.");
+  const saveMutation = useMutation(
+    async (formData) => {
+        const isEditing = !!editingRequest?.id;
+        const logTag = isEditing ? 'SERVICE_REQUEST_UPDATE' : 'SERVICE_REQUEST_CREATE';
         
-        const newRequestData = {
-          ...cleanFormData,
-          user_id: userProfile.id,
-          company_id: userProfile.current_company_id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+        await logAction({ tag: `${logTag}_ATTEMPT`, message: `Tentativa de ${isEditing ? 'atualizar' : 'criar'} Solicitação: "${formData.title}"`, meta: { formData }, userId: userProfile?.id, companyId: currentCompanyId });
+        
+        if (!isEditing && isAtLimit) {
+            const err = new Error(`Limite de ${requestsLimit} solicitações atingido.`);
+            await logAction({ level: 'ERROR', tag: `${logTag}_LIMIT_ERROR`, message: err.message, error: err, meta: { limit: requestsLimit }, userId: userProfile?.id, companyId: currentCompanyId });
+            throw err;
+        }
+
+        const requestData = {
+            ...formData,
+            company_id: currentCompanyId,
+            user_id: userProfile.id,
+            updated_at: new Date().toISOString(),
         };
 
-        const { error } = await supabase.from('service_requests').insert([newRequestData]);
-        if (error) throw error;
-        setGlobalServiceRequests();
-        toast({ title: "Sucesso!", description: "Nova solicitação de serviço criada." });
-      }
-      setIsDialogOpen(false);
-      setEditingRequest(null);
-    } catch (error) {
-      console.error('Error submitting service request:', error);
-      toast({ title: "Erro ao Salvar", description: `Falha ao salvar solicitação: ${error.message}`, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
+        let savedRequest;
+        if (isEditing) {
+            const { data, error } = await supabase.from('service_requests').update(requestData).eq('id', editingRequest.id).select().single();
+            if (error) throw error;
+            savedRequest = data;
+        } else {
+            const { data, error } = await supabase.from('service_requests').insert([{ ...requestData, created_at: new Date().toISOString() }]).select().single();
+            if (error) throw error;
+            savedRequest = data;
+        }
+        await logAction({ tag: `${logTag}_SUCCESS`, message: `Solicitação "${savedRequest.title}" salva com sucesso.`, meta: { serviceRequestId: savedRequest.id }, userId: userProfile?.id, companyId: currentCompanyId });
+        return savedRequest;
+    },
+    {
+      onSuccess: () => {
+        toast({ title: "Sucesso!", description: `Solicitação de serviço ${editingRequest ? 'atualizada' : 'criada'}.` });
+        queryClient.invalidateQueries(['serviceRequests', currentCompanyId, showArchived]);
+        setView('list');
+        setEditingRequest(null);
+      },
+      onError: async (error) => {
+        toast({ title: "Erro ao Salvar", description: error.message, variant: "destructive" });
+        const isEditing = !!editingRequest?.id;
+        const logTag = isEditing ? 'SERVICE_REQUEST_UPDATE' : 'SERVICE_REQUEST_CREATE';
+        await logAction({ level: 'ERROR', tag: `${logTag}_ERROR`, message: `Falha ao salvar Solicitação: "${editingRequest?.title}"`, error, userId: userProfile?.id, companyId: currentCompanyId });
+      },
     }
-  };
-  
-  const handleDeleteRequest = async (requestId) => {
-    try {
-      const { error } = await supabase.from('service_requests').delete().eq('id', requestId);
+  );
+
+  const archiveMutation = useMutation(
+    async ({ id, archive }) => {
+      const logTag = archive ? 'SERVICE_REQUEST_ARCHIVE' : 'SERVICE_REQUEST_UNARCHIVE';
+      await logAction({ tag: `${logTag}_ATTEMPT`, message: `Tentativa de ${archive ? 'arquivar' : 'desarquivar'} Solicitação ID: ${id}`, meta: { serviceRequestId: id }, userId: userProfile?.id, companyId: currentCompanyId });
+      const { error } = await supabase.from('service_requests').update({ is_archived: archive }).eq('id', id);
       if (error) throw error;
-      setGlobalServiceRequests();
-      toast({ title: "Sucesso!", description: "Solicitação excluída." });
-    } catch (error) {
-      console.error('Error deleting service request:', error);
-      toast({ title: "Erro ao Excluir", description: `Falha ao excluir solicitação: ${error.message}`, variant: "destructive" });
+      await logAction({ tag: `${logTag}_SUCCESS`, message: `Solicitação ID: ${id} ${archive ? 'arquivada' : 'desarquivada'} com sucesso.`, meta: { serviceRequestId: id }, userId: userProfile?.id, companyId: currentCompanyId });
+    },
+    {
+      onSuccess: (_, { archive }) => {
+        toast({ title: "Sucesso!", description: `Solicitação de serviço ${archive ? 'arquivada' : 'desarquivada'}.` });
+        queryClient.invalidateQueries(['serviceRequests', currentCompanyId, true]);
+        queryClient.invalidateQueries(['serviceRequests', currentCompanyId, false]);
+      },
+      onError: async (error, { archive }) => {
+        toast({ title: "Erro", description: error.message, variant: "destructive" });
+        const logTag = archive ? 'SERVICE_REQUEST_ARCHIVE_ERROR' : 'SERVICE_REQUEST_UNARCHIVE_ERROR';
+        await logAction({ level: 'ERROR', tag: logTag, message: `Falha ao ${archive ? 'arquivar' : 'desarquivar'} Solicitação.`, error, userId: userProfile?.id, companyId: currentCompanyId });
+      },
     }
+  );
+
+  const handleConvertToWorkOrder = (request) => {
+    if (!canConvert) {
+      toast({ title: "Acesso Negado", description: "Seu plano não permite converter solicitações.", variant: "destructive" });
+      return;
+    }
+    navigate(`/app/work-orders?action=new&from_request_id=${request.id}`);
   };
 
-  const openAddDialog = () => { setEditingRequest(null); setIsDialogOpen(true); };
-  const openEditDialog = (request) => { setEditingRequest(request); setIsDialogOpen(true); };
+  const filteredRequests = useMemo(() => serviceRequests.filter(req => {
+    const matchesSearch = searchTerm === '' ||
+      (req.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (req.requester_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (req.equipments?.name || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || req.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  }), [serviceRequests, searchTerm, filterStatus]);
 
-  const openRequestsCount = serviceRequests.filter(r => r.status === 'aberta').length;
-  const highUrgencyCount = serviceRequests.filter(r => r.urgency === 'high' && r.status !== 'convertida' && r.status !== 'fechada').length;
+  const openAddForm = () => {
+    if (isAtLimit) {
+      toast({ title: "Limite Atingido", description: `Seu plano permite até ${requestsLimit} solicitações.` });
+      return;
+    }
+    if (!canCreate) {
+      toast({ title: "Acesso Negado", description: "Seu plano não permite criar novas solicitações.", variant: "destructive" });
+      return;
+    }
+    setEditingRequest(null);
+    setView('form');
+  };
+
+  const openEditForm = (request) => {
+    setEditingRequest(request);
+    setView('form');
+  };
+
+  if (view === 'form') {
+    return (
+      <ServiceRequestForm
+        initialData={editingRequest}
+        onSubmit={(data) => saveMutation.mutate(data)}
+        onCancel={() => { setView('list'); setEditingRequest(null); }}
+        isSubmitting={saveMutation.isLoading}
+        equipments={equipments}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-border">
-        <div><h1 className="text-3xl md:text-4xl font-bold text-foreground">Solicitações de Serviço</h1><p className="text-muted-foreground text-base md:text-lg">Gerencie os pedidos de manutenção e suporte.</p></div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isSubmitting) setIsDialogOpen(isOpen); }}>
-          <DialogTrigger asChild><Button onClick={openAddDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground"><Plus className="h-4 w-4 mr-2" /> Nova Solicitação</Button></DialogTrigger>
-          <DialogContent className="max-w-2xl"><DialogHeader><DialogTitle className="text-foreground">{editingRequest ? 'Editar Solicitação' : 'Criar Nova Solicitação'}</DialogTitle></DialogHeader><ServiceRequestForm initialData={editingRequest} onSubmit={handleFormSubmit} onCancel={() => setIsDialogOpen(false)} equipments={equipments} isSubmitting={isSubmitting} /></DialogContent>
-        </Dialog>
+    <div className="space-y-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">
+            {showArchived ? 'Solicitações Arquivadas' : 'Solicitações de Serviço'}
+          </h1>
+          <p className="text-muted-foreground">
+            {showArchived ? 'Visualize solicitações antigas.' : 'Gerencie todas as solicitações de serviço e manutenção.'}
+          </p>
+          {!showArchived && <p className="text-sm text-amber-500 mt-1 font-medium">{serviceRequests.length}/{requestsLimit === Infinity ? '∞' : requestsLimit} solicitações. {isAtLimit && " Limite do plano atingido."}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowArchived(!showArchived)}>
+            {showArchived ? <Unarchive className="h-4 w-4 mr-2" /> : <Archive className="h-4 w-4 mr-2" />}
+            {showArchived ? 'Ver Ativas' : 'Ver Arquivo'}
+          </Button>
+          <Button onClick={openAddForm} disabled={isAtLimit || !canCreate}>
+            <Plus className="h-4 w-4 mr-2" /> Nova Solicitação {(!canCreate || isAtLimit) && <Lock className="ml-1 h-3 w-3"/>}
+          </Button>
+        </div>
       </motion.div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}><Card className="glass-effect card-hover"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total de Solicitações</CardTitle><FileText className="h-5 w-5 text-primary" /></CardHeader><CardContent><div className="text-3xl font-bold text-primary">{serviceRequests.length}</div><p className="text-xs text-muted-foreground pt-1">Registros no sistema</p></CardContent></Card></motion.div>
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}><Card className="glass-effect card-hover"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Abertas / Não Atendidas</CardTitle><Loader2 className="h-5 w-5 text-blue-500 dark:text-blue-400 animate-spin" /></CardHeader><CardContent><div className="text-3xl font-bold text-blue-500 dark:text-blue-400">{openRequestsCount}</div><p className="text-xs text-muted-foreground pt-1">Aguardando análise ou conversão</p></CardContent></Card></motion.div>
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}><Card className="glass-effect card-hover"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Urgência Alta</CardTitle><AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" /></CardHeader><CardContent><div className="text-3xl font-bold text-red-500 dark:text-red-400">{highUrgencyCount}</div><p className="text-xs text-muted-foreground pt-1">Requerem atenção prioritária</p></CardContent></Card></motion.div>
-      </div>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" /><Input placeholder="Buscar por título, solicitante, equipamento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 bg-background" /></div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}><SelectTrigger className="w-full sm:w-48 bg-background"><SelectValue placeholder="Filtrar por status" /></SelectTrigger><SelectContent>{[{value: 'all', label: 'Todos Status'}, ...Object.entries(statusLevels).map(([k,v]) => ({value: k, label: v}))].map(s => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}</SelectContent></Select>
-        <Select value={filterUrgency} onValueChange={setFilterUrgency}><SelectTrigger className="w-full sm:w-48 bg-background"><SelectValue placeholder="Filtrar por urgência" /></SelectTrigger><SelectContent>{[{value: 'all', label: 'Todas Urgências'}, ...Object.entries(urgencyLevels).map(([k,v]) => ({value: k, label: v}))].map(u => (<SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>))}</SelectContent></Select>
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input placeholder="Buscar por título, solicitante ou equipamento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filtrar por status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos Status</SelectItem>
+            <SelectItem value="aberta">Aberta</SelectItem>
+            <SelectItem value="em-atendimento">Em Atendimento</SelectItem>
+            <SelectItem value="concluida">Concluída</SelectItem>
+            <SelectItem value="cancelada">Cancelada</SelectItem>
+            <SelectItem value="convertida">Convertida</SelectItem>
+          </SelectContent>
+        </Select>
       </motion.div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">{filteredRequests.map((request, index) => (<motion.div key={request.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.03, duration: 0.3 }}><ServiceRequestCard request={request} onEdit={openEditDialog} onDelete={handleDeleteRequest} onConvertToWorkOrder={onConvertToWorkOrder} getEquipmentName={getEquipmentName} /></motion.div>))}</div>
-      {filteredRequests.length === 0 && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12"><FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" /><h3 className="text-xl font-semibold text-foreground mb-2">Nenhuma Solicitação Encontrada</h3><p className="text-muted-foreground">{searchTerm || filterStatus !== 'all' || filterUrgency !== 'all' ? 'Tente refinar sua busca ou alterar os filtros.' : 'Crie a primeira solicitação de serviço.'}</p></motion.div>)}
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
+      ) : isError ? (
+        <div className="text-center text-destructive py-10">Erro ao carregar solicitações: {error.message}</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredRequests.map((request, index) => (
+              <motion.div key={request.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
+                <ServiceRequestCard
+                  request={request}
+                  onEdit={openEditForm}
+                  onDetails={() => setDetailsRequest(request)}
+                  onArchive={(id, archive) => archiveMutation.mutate({ id, archive })}
+                  onConvertToWorkOrder={handleConvertToWorkOrder}
+                  canEdit={canEdit}
+                  canArchive={canArchive}
+                />
+              </motion.div>
+            ))}
+          </div>
+          {filteredRequests.length === 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Nenhuma solicitação encontrada</h3>
+              <p className="text-muted-foreground">{searchTerm || filterStatus !== 'all' ? 'Tente ajustar os filtros.' : 'Nenhuma solicitação aqui.'}</p>
+            </motion.div>
+          )}
+        </>
+      )}
+      <ServiceRequestDetailsModal
+        isOpen={!!detailsRequest}
+        onClose={() => setDetailsRequest(null)}
+        request={detailsRequest}
+      />
     </div>
   );
 };

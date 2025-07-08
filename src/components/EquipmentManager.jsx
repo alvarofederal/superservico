@@ -1,300 +1,263 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Settings, Calendar, MapPin, AlertTriangle, Loader2, Briefcase } from 'lucide-react';
+import { Plus, Search, Settings, Briefcase, ScanLine, Lock, ListTree, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth.js';
+import { useLicense } from '@/hooks/useLicense.js';
+import QRCodeDisplayModal from '@/components/equipment/QRCodeDisplayModal';
+import QRCodeScannerComponent from '@/components/equipment/QRCodeScannerComponent';
+import EquipmentDetailsModal from '@/components/equipment/EquipmentDetailsModal';
+import EquipmentForm from '@/components/equipment/EquipmentForm';
+import EquipmentCard from '@/components/equipment/EquipmentCard';
+import { useNavigate } from 'react-router-dom';
+import { logAction } from '@/services/logService';
+import { logEquipmentHistory } from '@/services/historyService';
 
-const statusColors = {
-  operational: 'bg-green-500',
-  maintenance: 'bg-yellow-500',
-  broken: 'bg-red-500',
-  retired: 'bg-gray-500'
-};
+const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
 
-const statusLabels = {
-  operational: 'Operacional',
-  maintenance: 'Em Manutenção',
-  broken: 'Quebrado',
-  retired: 'Aposentado'
-};
-
-const EquipmentForm = ({ initialData, onSubmit, onCancel, isSubmitting }) => {
-  const [formData, setFormData] = useState(
-    initialData || {
-      name: '',
-      type: '',
-      model: '',
-      serialNumber: '',
-      location: '',
-      status: 'operational',
-      lastMaintenance: '',
-      nextMaintenance: '',
-      maintenanceInterval: 30,
-      notes: ''
-    }
-  );
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData({
-        ...initialData,
-        lastMaintenance: initialData.lastmaintenance ? initialData.lastmaintenance.split('T')[0] : '',
-        nextMaintenance: initialData.nextmaintenance ? initialData.nextmaintenance.split('T')[0] : '',
-        serialNumber: initialData.serialnumber || '',
-        maintenanceInterval: initialData.maintenanceinterval || 30,
-      });
-    } else {
-      setFormData({
-        name: '', type: '', model: '', serialNumber: '', location: '', status: 'operational',
-        lastMaintenance: '', nextMaintenance: '', maintenanceInterval: 30, notes: ''
-      });
-    }
-  }, [initialData]);
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmitForm = (e) => {
-    e.preventDefault();
-    if (!formData.name || !formData.type || !formData.location) {
-      toast({
-        title: "Campos Obrigatórios",
-        description: "Por favor, preencha o nome, tipo e localização do equipamento.",
-        variant: "destructive"
-      });
-      return;
-    }
-    const dataToSubmit = { 
-      ...formData,
-      serialnumber: formData.serialNumber, 
-      lastmaintenance: formData.lastMaintenance || null,
-      nextmaintenance: formData.nextMaintenance || null,
-      maintenanceinterval: formData.maintenanceInterval ? parseInt(formData.maintenanceInterval) : null,
-    };
-    delete dataToSubmit.serialNumber; 
-    delete dataToSubmit.lastMaintenance;
-    delete dataToSubmit.nextMaintenance;
-    delete dataToSubmit.maintenanceInterval;
-
-    onSubmit(dataToSubmit);
-  };
-
-  return (
-    <form onSubmit={handleSubmitForm} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="name">Nome do Equipamento *</Label>
-          <Input id="name" value={formData.name} onChange={(e) => handleChange('name', e.target.value)} placeholder="Ex: Compressor de Ar" />
-        </div>
-        <div>
-          <Label htmlFor="type">Tipo *</Label>
-          <Input id="type" value={formData.type} onChange={(e) => handleChange('type', e.target.value)} placeholder="Ex: Compressor" />
-        </div>
-        <div>
-          <Label htmlFor="model">Modelo</Label>
-          <Input id="model" value={formData.model} onChange={(e) => handleChange('model', e.target.value)} placeholder="Ex: XYZ-2000" />
-        </div>
-        <div>
-          <Label htmlFor="serialNumberForm">Número de Série</Label>
-          <Input id="serialNumberForm" value={formData.serialNumber} onChange={(e) => handleChange('serialNumber', e.target.value)} placeholder="Ex: SN123456789" />
-        </div>
-        <div>
-          <Label htmlFor="location">Localização *</Label>
-          <Input id="location" value={formData.location} onChange={(e) => handleChange('location', e.target.value)} placeholder="Ex: Setor A - Linha 1" />
-        </div>
-        <div>
-          <Label htmlFor="status">Status</Label>
-          <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="operational">Operacional</SelectItem>
-              <SelectItem value="maintenance">Em Manutenção</SelectItem>
-              <SelectItem value="broken">Quebrado</SelectItem>
-              <SelectItem value="retired">Aposentado</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="lastMaintenanceForm">Última Manutenção</Label>
-          <Input id="lastMaintenanceForm" type="date" value={formData.lastMaintenance} onChange={(e) => handleChange('lastMaintenance', e.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor="nextMaintenanceForm">Próxima Manutenção</Label>
-          <Input id="nextMaintenanceForm" type="date" value={formData.nextMaintenance} onChange={(e) => handleChange('nextMaintenance', e.target.value)} />
-        </div>
-        <div className="md:col-span-2">
-          <Label htmlFor="maintenanceIntervalForm">Intervalo de Manutenção (dias)</Label>
-          <Input id="maintenanceIntervalForm" type="number" value={formData.maintenanceInterval} onChange={(e) => handleChange('maintenanceInterval', parseInt(e.target.value))} placeholder="30"/>
-        </div>
-        <div className="md:col-span-2">
-          <Label htmlFor="notes">Observações</Label>
-          <Input id="notes" value={formData.notes} onChange={(e) => handleChange('notes', e.target.value)} placeholder="Observações adicionais..." />
-        </div>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {initialData ? 'Atualizar' : 'Cadastrar'}
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-const EquipmentCard = ({ equipment, onEdit }) => {
-  const getMaintenanceStatus = (nextMaintenance) => {
-    if (!nextMaintenance) return null;
-    const today = new Date();
-    const maintenanceDate = new Date(nextMaintenance);
-    const diffTime = maintenanceDate.setHours(0,0,0,0) - today.setHours(0,0,0,0);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) return { status: 'overdue', label: `Atrasada (${Math.abs(diffDays)}d)`, color: 'text-red-400' };
-    if (diffDays <= 7) return { status: 'upcoming', label: `Próxima (${diffDays}d)`, color: 'text-yellow-400' };
-    return { status: 'scheduled', label: `Agendada (${diffDays}d)`, color: 'text-green-400' };
-  };
-  const maintenanceStatus = getMaintenanceStatus(equipment.nextmaintenance);
-
-  return (
-    <Card className="glass-effect card-hover h-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{equipment.name}</CardTitle>
-            <p className="text-sm text-muted-foreground">{equipment.type}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${statusColors[equipment.status] || 'bg-gray-300'}`} />
-            <Button variant="ghost" size="icon" onClick={() => onEdit(equipment)} className="h-8 w-8"><Settings className="h-4 w-4" /></Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-muted-foreground" /><span>{equipment.location}</span></div>
-        {equipment.model && <div className="text-sm"><span className="text-muted-foreground">Modelo: </span><span>{equipment.model}</span></div>}
-        {equipment.serialnumber && <div className="text-sm"><span className="text-muted-foreground">S/N: </span><span>{equipment.serialnumber}</span></div>}
-        <div className="flex items-center justify-between">
-          <Badge variant="outline" className={`${statusColors[equipment.status] || 'bg-gray-300'} text-white border-0`}>{statusLabels[equipment.status] || 'Desconhecido'}</Badge>
-        </div>
-        {equipment.nextmaintenance && maintenanceStatus && (
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Próxima:</span>
-            <span className={maintenanceStatus.color}>{new Date(equipment.nextmaintenance + 'T00:00:00').toLocaleDateString()}</span>
-            {maintenanceStatus.status === 'overdue' && <AlertTriangle className="h-4 w-4 text-red-400" />}
-            {maintenanceStatus.status === 'upcoming' && <span className={`text-xs ${maintenanceStatus.color}`}>{maintenanceStatus.label.replace('Próxima ', '')}</span>}
-          </div>
-        )}
-        {equipment.notes && <div className="text-sm text-muted-foreground"><span className="font-medium">Obs: </span>{equipment.notes}</div>}
-      </CardContent>
-    </Card>
-  );
-};
-
-const EquipmentManager = ({ equipments: initialEquipments, setEquipments: setGlobalEquipments }) => {
-  const { userProfile } = useAuth();
-  const [equipments, setEquipmentsState] = useState(initialEquipments);
+const EquipmentManager = () => {
+  const { userProfile, currentCompanyId, hasAccess } = useAuth();
+  const { limits } = useLicense();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  
+  const [view, setView] = useState('list'); // 'list' or 'form'
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQrDisplayOpen, setIsQrDisplayOpen] = useState(false);
+  const [selectedEquipmentForQr, setSelectedEquipmentForQr] = useState(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [detailedEquipment, setDetailedEquipment] = useState(null);
 
-  useEffect(() => {
-    setEquipmentsState(initialEquipments);
-  }, [initialEquipments]);
+  const { data: equipments = [], isLoading, isError, error } = useQuery(
+    ['equipments', currentCompanyId],
+    async () => {
+      if (!currentCompanyId) return [];
+      const { data, error } = await supabase
+        .from('equipments')
+        .select('*')
+        .eq('company_id', currentCompanyId)
+        .order('createdat', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    {
+      enabled: !!currentCompanyId,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const equipmentLimit = limits.equipment;
+  const isAtLimit = equipmentLimit !== Infinity && equipments.length >= equipmentLimit;
+  const canManageCategories = hasAccess('category_management');
 
   const filteredEquipments = equipments.filter(equipment => {
     const name = equipment.name || "";
-    const type = equipment.type || "";
+    const category = equipment.category || "";
     const location = equipment.location || "";
-    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         location.toLowerCase().includes(searchTerm.toLowerCase());
+    const serial = equipment.serialnumber || "";
+    const brand = equipment.brand || "";
+    const model = equipment.model || "";
+
+    const matchesSearch = 
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (equipment.categories?.name || category).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      serial.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      model.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesFilter = filterStatus === 'all' || equipment.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
-  const handleFormSubmit = async (formData) => {
-    if (!userProfile || !userProfile.current_company_id) {
-      toast({ title: "Erro", description: "Nenhuma empresa selecionada. Selecione uma empresa para gerenciar equipamentos.", variant: "destructive" });
+  const generateQrCodePayload = (equipmentId) => {
+    return `${APP_URL}/app/equipment/view/${equipmentId}`;
+  };
+  
+  const handleBackToList = useCallback(() => {
+    setView('list');
+    setEditingEquipment(null);
+  }, []);
+
+  const saveEquipmentMutation = useMutation(
+    async (formData) => {
+      if (!userProfile || !currentCompanyId) {
+        throw new Error("Nenhuma empresa selecionada.");
+      }
+      const isEditing = !!editingEquipment?.id;
+      const logTag = isEditing ? 'EQUIPMENT_UPDATE' : 'EQUIPMENT_CREATE';
+
+      await logAction({ tag: `${logTag}_ATTEMPT`, message: `Tentativa de ${isEditing ? 'atualizar' : 'criar'} equipamento: "${formData.dbData.name}"`, meta: { formData }, userId: userProfile.id, companyId: currentCompanyId });
+
+      if (!isEditing && isAtLimit) {
+        throw new Error(`Limite de ${equipmentLimit} equipamentos atingido.`);
+      }
+
+      const equipmentId = isEditing ? editingEquipment.id : crypto.randomUUID();
+
+      let finalPhotoUrls = formData.existing_photos || [];
+      if (formData.new_photos && formData.new_photos.length > 0) {
+        const uploadPromises = formData.new_photos.map(async (fileWrapper) => {
+          const filePath = `${userProfile.id}/equipment-photos/${equipmentId}/${fileWrapper.file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('ticket-attachments')
+            .upload(filePath, fileWrapper.file, { upsert: true });
+
+          if (uploadError) throw new Error(`Falha no upload da imagem: ${uploadError.message}`);
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('ticket-attachments')
+            .getPublicUrl(filePath);
+
+          return publicUrl;
+        });
+        const newPhotoUrls = await Promise.all(uploadPromises);
+        finalPhotoUrls = [...finalPhotoUrls, ...newPhotoUrls];
+      }
+
+      const equipmentData = { 
+        ...formData.dbData,
+        photos_urls: finalPhotoUrls,
+        company_id: currentCompanyId, 
+        user_id: userProfile.id,
+        updatedat: new Date().toISOString(),
+      };
+      
+      let savedEquipment;
+      if (isEditing) {
+        const { data, error } = await supabase.from('equipments').update(equipmentData).eq('id', equipmentId).select().single();
+        if (error) throw error;
+        savedEquipment = data;
+      } else {
+        const qrcode_payload = generateQrCodePayload(equipmentId);
+        const { data, error } = await supabase.from('equipments').insert({ 
+          ...equipmentData, 
+          id: equipmentId, 
+          qrcode_payload, 
+          createdat: new Date().toISOString() 
+        }).select().single();
+        if (error) throw error;
+        savedEquipment = data;
+      }
+
+      await logAction({ tag: `${logTag}_SUCCESS`, message: `Equipamento "${savedEquipment.name}" salvo com sucesso.`, meta: { equipmentId: savedEquipment.id }, userId: userProfile.id, companyId: currentCompanyId });
+      return savedEquipment;
+    },
+    {
+      onSuccess: async (savedEquipment) => {
+        const isEditing = !!editingEquipment?.id;
+        toast({ title: "Sucesso!", description: `Equipamento ${isEditing ? 'atualizado' : 'cadastrado'}.` });
+        
+        await logEquipmentHistory({
+          equipment_id: savedEquipment.id,
+          company_id: currentCompanyId,
+          user_id: userProfile.id,
+          event_type: isEditing ? 'EQUIPMENT_UPDATED' : 'EQUIPMENT_CREATED',
+          event_description: isEditing ? 'Equipamento Atualizado' : 'Equipamento Criado',
+          details: { name: savedEquipment.name }
+        });
+
+        queryClient.invalidateQueries(['equipments', currentCompanyId]);
+        queryClient.invalidateQueries(['equipmentHistory', savedEquipment.id]);
+        handleBackToList();
+      },
+      onError: async (error) => {
+        const isEditing = !!editingEquipment?.id;
+        const logTag = isEditing ? 'EQUIPMENT_UPDATE_ERROR' : 'EQUIPMENT_CREATE_ERROR';
+        console.error('Erro ao salvar equipamento:', error);
+        toast({ title: "Erro ao Salvar", description: error.message, variant: "destructive" });
+        await logAction({ level: 'ERROR', tag: logTag, message: `Falha ao salvar equipamento: "${editingEquipment?.name || 'Novo'}"`, error: error, meta: { equipmentData: editingEquipment }, userId: userProfile?.id, companyId: currentCompanyId });
+
+        if (error.message.includes('Limite')) {
+           handleBackToList();
+        }
+      },
+    }
+  );
+
+  const handleFormSubmit = (formData) => {
+    saveEquipmentMutation.mutate(formData);
+  };
+  
+  const handleShowQrModal = (equipment) => {
+    if(!hasAccess('equipment_qrcode_view')) {
+      toast({ title: "Funcionalidade Premium", description: "Visualizar QRCodes requer um plano superior.", variant: "default" });
       return;
     }
-    setIsSubmitting(true);
-    const equipmentData = { 
-      ...formData, 
-      company_id: userProfile.current_company_id, 
-      user_id: userProfile.id
-    };
-    
-    try {
-      if (editingEquipment) {
-        const { data, error } = await supabase
-          .from('equipments')
-          .update({ ...equipmentData, updatedat: new Date().toISOString() })
-          .eq('id', editingEquipment.id)
-          .eq('company_id', userProfile.current_company_id)
-          .select()
-          .single();
-        if (error) throw error;
-        if (typeof setGlobalEquipments === 'function') setGlobalEquipments();
-        toast({ title: "Sucesso!", description: "Equipamento atualizado." });
-      } else {
-        const { data, error } = await supabase
-          .from('equipments')
-          .insert([{ 
-            ...equipmentData, 
-            id: crypto.randomUUID(),
-            createdat: new Date().toISOString(), 
-            updatedat: new Date().toISOString() 
-          }])
-          .select()
-          .single();
-        if (error) throw error;
-        if (typeof setGlobalEquipments === 'function') setGlobalEquipments();
-        toast({ title: "Sucesso!", description: "Equipamento cadastrado." });
-      }
-      setIsDialogOpen(false);
-      setEditingEquipment(null);
-    } catch (error) {
-      console.error('Erro ao salvar equipamento:', error);
-      let description = "Ocorreu um erro ao salvar o equipamento. Tente novamente.";
-      if (error.message && error.message.includes("violates row-level security policy")) {
-        description = "Você não tem permissão para realizar esta ação na empresa atual ou os dados estão incorretos.";
-      } else if (error.message) {
-        description = error.message;
-      }
-      toast({ title: "Erro ao Salvar", description: description, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setSelectedEquipmentForQr(equipment);
+    setIsQrDisplayOpen(true);
   };
 
-  const openAddDialog = () => {
-    if (!userProfile?.current_company_id) {
+  const openAddForm = () => {
+    if (!currentCompanyId) {
       toast({ title: "Selecione uma Empresa", description: "Você precisa selecionar ou criar uma empresa antes de adicionar equipamentos.", variant: "default", duration: 5000});
       return;
     }
+    if (isAtLimit) {
+       toast({ title: "Limite Atingido", description: `Seu plano atual permite até ${equipmentLimit} equipamentos. Faça upgrade para adicionar mais.`, variant: "default", duration: 7000 });
+       return;
+    }
     setEditingEquipment(null);
-    setIsDialogOpen(true);
+    setView('form');
   };
 
-  const openEditDialog = (equipment) => {
+  const openEditForm = (equipment) => {
+     if (!hasAccess('equipment_edit')) {
+       toast({ title: "Acesso Negado", description: "Seu plano atual não permite editar equipamentos.", variant: "destructive" });
+       return;
+    }
     setEditingEquipment(equipment);
-    setIsDialogOpen(true);
+    setView('form');
   };
-  
-  if (!userProfile?.current_company_id && userProfile?.role !== 'client') {
+
+  const handleScanSuccess = async (decodedText) => {
+    toast({ title: "QRCode Lido!", description: `Conteúdo: ${decodedText}`, duration: 2000 });
+    if(!hasAccess('equipment_qrcode_scan')) {
+      toast({ title: "Funcionalidade Premium", description: "Escanear QRCodes requer um plano superior.", variant: "default" });
+      setIsScannerOpen(false);
+      return;
+    }
+    try {
+      const urlParts = decodedText.split('/');
+      const equipmentId = urlParts[urlParts.length - 1];
+
+      if (!equipmentId) {
+        throw new Error("Formato de QRCode inválido. ID do equipamento não encontrado.");
+      }
+      
+      const { data: equipment, error: fetchError } = await supabase
+        .from('equipments')
+        .select('*')
+        .eq('id', equipmentId)
+        .eq('company_id', currentCompanyId) 
+        .single();
+
+      if (fetchError) {
+        if (fetchError.code === 'PGRST116') throw new Error(`Equipamento com ID ${equipmentId} não encontrado na empresa atual ou acesso negado.`);
+        throw fetchError;
+      }
+      
+      if (equipment) {
+        setDetailedEquipment(equipment);
+      } else {
+        throw new Error(`Equipamento com ID ${equipmentId} não encontrado.`);
+      }
+    } catch (e) {
+      console.error("Erro ao processar QRCode:", e);
+      toast({ title: "Erro ao Processar QRCode", description: e.message, variant: "destructive" });
+    }
+    setIsScannerOpen(false);
+  };
+
+  if (!currentCompanyId && userProfile?.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center text-center p-8 rounded-lg bg-card shadow-xl h-[calc(100vh-200px)]">
         <Briefcase className="w-16 h-16 text-primary mb-6" />
@@ -306,35 +269,88 @@ const EquipmentManager = ({ equipments: initialEquipments, setEquipments: setGlo
     );
   }
 
+  if (view === 'form') {
+    return (
+        <motion.div
+            key="form-view"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="flex items-center gap-4 mb-6">
+                <Button variant="outline" size="icon" onClick={handleBackToList}>
+                    <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">
+                        {editingEquipment ? 'Editar Equipamento' : 'Novo Equipamento'}
+                    </h1>
+                    <p className="text-muted-foreground">Preencha os detalhes e salve as alterações.</p>
+                </div>
+            </div>
+            <div className="bg-card p-6 rounded-lg border">
+                <EquipmentForm 
+                    initialData={editingEquipment} 
+                    onSubmit={handleFormSubmit} 
+                    onCancel={handleBackToList} 
+                    isSubmitting={saveEquipmentMutation.isLoading}
+                />
+            </div>
+        </motion.div>
+    );
+  }
+  
+  const canScan = hasAccess('equipment_qrcode_scan');
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold gradient-text">Gestão de Equipamentos</h1>
-          <p className="text-muted-foreground">Gerencie todos os equipamentos da empresa selecionada.</p>
+        <div className="flex items-center gap-4">
+          <Settings className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Gestão de Equipamentos</h1>
+            <p className="text-muted-foreground">Gerencie todos os equipamentos da empresa selecionada.</p>
+            {currentCompanyId && <p className="text-sm text-amber-500 mt-1 font-medium">
+              {equipments.length}/{equipmentLimit === Infinity ? '∞' : equipmentLimit} equipamentos cadastrados.
+              {isAtLimit && " Limite do plano atingido."}
+            </p>}
+          </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isSubmitting) setIsDialogOpen(isOpen); }}>
-          <DialogTrigger asChild>
-            <Button 
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" 
-              onClick={openAddDialog}
-              disabled={!userProfile?.current_company_id}
+        <div className="flex flex-wrap gap-2">
+           <Button
+              variant="outline"
+              onClick={() => navigate('/app/categories')}
+              disabled={!currentCompanyId}
+              title={"Gerenciar Categorias"}
             >
-              <Plus className="h-4 w-4 mr-2" /> Novo Equipamento
+              <ListTree className="h-4 w-4 mr-2" />
+              Categorias
+              {!canManageCategories && <Lock className="ml-1 h-3 w-3" />}
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editingEquipment ? 'Editar Equipamento' : 'Novo Equipamento'}</DialogTitle></DialogHeader>
-            <EquipmentForm initialData={editingEquipment} onSubmit={handleFormSubmit} onCancel={() => setIsDialogOpen(false)} isSubmitting={isSubmitting} />
-          </DialogContent>
-        </Dialog>
+           <Button 
+            variant="outline"
+            className={`border-primary text-primary hover:bg-primary/10 hover:text-primary ${!canScan ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => canScan ? setIsScannerOpen(true) : toast({ title: "Funcionalidade Premium", description: "Escanear QRCodes requer um plano superior."})}
+            disabled={!currentCompanyId || !canScan}
+            title={!canScan ? "Funcionalidade Premium: Escanear QRCodes" : "Escanear Equipamento"}
+          >
+            <ScanLine className="h-4 w-4 mr-2" /> Escanear {!canScan && <Lock className="ml-1 h-3 w-3"/>}
+          </Button>
+          <Button 
+            onClick={openAddForm}
+            disabled={!currentCompanyId || isAtLimit}
+            title={isAtLimit ? `Limite de ${equipmentLimit} equipamentos atingido. Faça upgrade.` : "Novo Equipamento"}
+          >
+            <Plus className="h-4 w-4 mr-2" /> Novo Equipamento {isAtLimit && <Lock className="ml-1 h-3 w-3"/>}
+          </Button>
+        </div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Buscar equipamentos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+          <Input placeholder="Buscar por nome, categoria, marca, local ou S/N..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filtrar por status" /></SelectTrigger>
@@ -348,20 +364,47 @@ const EquipmentManager = ({ equipments: initialEquipments, setEquipments: setGlo
         </Select>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEquipments.map((equipment, index) => (
-          <motion.div key={equipment.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
-            <EquipmentCard equipment={equipment} onEdit={openEditDialog} />
-          </motion.div>
-        ))}
-      </div>
-      {filteredEquipments.length === 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
-          <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Nenhum equipamento encontrado</h3>
-          <p className="text-muted-foreground">{searchTerm || filterStatus !== 'all' ? 'Tente ajustar os filtros.' : 'Cadastre seu primeiro equipamento para a empresa atual.'}</p>
-        </motion.div>
+      {isLoading ? (
+        <div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
+      ) : isError ? (
+        <div className="text-center text-destructive py-10">Erro ao carregar equipamentos: {error.message}</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEquipments.map((equipment, index) => (
+              <motion.div key={equipment.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
+                <EquipmentCard equipment={equipment} onEdit={openEditForm} onShowQr={handleShowQrModal} onShowDetails={() => setDetailedEquipment(equipment)} canEdit={hasAccess('equipment_edit')} canViewQr={hasAccess('equipment_qrcode_view')} />
+              </motion.div>
+            ))}
+          </div>
+          {filteredEquipments.length === 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
+              <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Nenhum equipamento encontrado</h3>
+              <p className="text-muted-foreground">{searchTerm || filterStatus !== 'all' ? 'Tente ajustar os filtros.' : 'Cadastre seu primeiro equipamento para a empresa atual.'}</p>
+            </motion.div>
+          )}
+        </>
       )}
+
+      {selectedEquipmentForQr && (
+        <QRCodeDisplayModal 
+          isOpen={isQrDisplayOpen} 
+          setIsOpen={setIsQrDisplayOpen} 
+          equipment={selectedEquipmentForQr} 
+        />
+      )}
+      <QRCodeScannerComponent 
+        isOpen={isScannerOpen}
+        setIsOpen={setIsScannerOpen}
+        onScanSuccess={handleScanSuccess}
+        onScanError={() => {}}
+      />
+      <EquipmentDetailsModal
+        equipment={detailedEquipment}
+        onClose={() => setDetailedEquipment(null)}
+        onEdit={openEditForm}
+      />
     </div>
   );
 };

@@ -1,29 +1,40 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Plus, Briefcase, Check, ChevronsRight } from 'lucide-react';
+import { Plus, Briefcase, Check, ChevronsRight, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth.js';
-
-import CreateCompanyForm from './company/CreateCompanyForm';
-import CompanyList from './company/CompanyList';
-import CompanyDetails from './company/CompanyDetails';
+import { useLicense } from '@/hooks/useLicense.js';
+import { logAction } from '@/services/logService';
+import CreateCompanyForm from './CreateCompanyForm';
+import CompanyList from './CompanyList';
+import CompanyDetails from './CompanyDetails';
 
 const CompanyManager = () => {
   const { userProfile, userCompanies, selectCompany, refreshAuthData } = useAuth();
+  const { limits } = useLicense();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(userProfile?.current_company_id);
+  const [selectedCompanyIdForView, setSelectedCompanyIdForView] = useState(userProfile?.current_company_id);
+
+  const companiesLimit = limits.companies;
+  const isAtLimit = companiesLimit !== Infinity && userCompanies.length >= companiesLimit;
 
   useEffect(() => {
-    setSelectedCompanyId(userProfile?.current_company_id);
+    setSelectedCompanyIdForView(userProfile?.current_company_id);
   }, [userProfile?.current_company_id]);
 
   const handleCreateCompany = async ({ name }) => {
+    if (isAtLimit) {
+      toast({ title: "Limite Atingido", description: `Seu plano atual permite até ${companiesLimit} empresas. Faça upgrade para adicionar mais.`, variant: "default" });
+      return;
+    }
     setIsSubmitting(true);
+    await logAction({ tag: 'COMPANY_CREATE_ATTEMPT', message: `Tentativa de criar empresa: "${name}"`, userId: userProfile?.id });
     try {
       if (!userProfile || !userProfile.id) throw new Error("Usuário não autenticado.");
       
@@ -35,18 +46,22 @@ const CompanyManager = () => {
 
       if (companyError) throw companyError;
       
+      await logAction({ tag: 'COMPANY_CREATE_SUCCESS', message: `Empresa "${name}" criada com sucesso.`, meta: { companyId: companyData.id }, userId: userProfile.id, companyId: companyData.id });
       toast({ title: "Sucesso!", description: `Empresa "${name}" criada.` });
       setIsCreateDialogOpen(false);
       
       if (companyData) {
-        await selectCompany(companyData.id);
-        setSelectedCompanyId(companyData.id);
+        await selectCompany(companyData.id); 
+        setSelectedCompanyIdForView(companyData.id);
+        if (typeof refreshAuthData === 'function') {
+          await refreshAuthData(true); 
+        }
       }
-      if (typeof refreshAuthData === 'function') await refreshAuthData();
 
     } catch (error) {
       console.error('Erro ao criar empresa:', error);
       toast({ title: "Erro ao Criar Empresa", description: error.message, variant: "destructive" });
+      await logAction({ level: 'ERROR', tag: 'COMPANY_CREATE_ERROR', message: `Falha ao criar empresa: "${name}"`, error, userId: userProfile?.id });
     } finally {
       setIsSubmitting(false);
     }
@@ -54,6 +69,7 @@ const CompanyManager = () => {
   
   const handleInviteUser = async ({ email, roleInCompany, companyId }) => {
     setIsSubmitting(true);
+    await logAction({ tag: 'USER_INVITE_ATTEMPT', message: `Tentativa de convidar usuário: "${email}" para a empresa.`, meta: { roleInCompany }, userId: userProfile?.id, companyId });
     try {
         const { data: invitedUserId, error: findUserError } = await supabase.rpc('get_user_id_by_email', {
           p_email: email
@@ -63,6 +79,7 @@ const CompanyManager = () => {
 
         if (!invitedUserId) {
             toast({ title: "Usuário não encontrado", description: `Usuário com email ${email} não encontrado. O usuário precisa se cadastrar primeiro.`, variant: "destructive", duration: 7000});
+            await logAction({ level: 'WARN', tag: 'USER_INVITE_NOT_FOUND', message: `Usuário "${email}" não encontrado no sistema.`, meta: { email }, userId: userProfile?.id, companyId });
             setIsSubmitting(false);
             return false; 
         }
@@ -74,16 +91,19 @@ const CompanyManager = () => {
         if (inviteError) {
             if (inviteError.code === '23505') {
                  toast({ title: "Usuário Já Membro", description: `${email} já faz parte desta empresa.`, variant: "default" });
+                 await logAction({ level: 'WARN', tag: 'USER_INVITE_ALREADY_MEMBER', message: `Usuário "${email}" já é membro da empresa.`, meta: { invitedUserId }, userId: userProfile?.id, companyId });
             } else {
                 throw inviteError;
             }
         } else {
             toast({ title: "Sucesso!", description: `Usuário ${email} convidado.` });
+            await logAction({ tag: 'USER_INVITE_SUCCESS', message: `Usuário "${email}" convidado com sucesso.`, meta: { invitedUserId, roleInCompany }, userId: userProfile?.id, companyId });
         }
         return true; 
     } catch (error) {
         console.error('Erro ao convidar usuário:', error);
         toast({ title: "Erro ao Convidar", description: error.message, variant: "destructive" });
+        await logAction({ level: 'ERROR', tag: 'USER_INVITE_ERROR', message: `Falha ao convidar usuário: "${email}"`, error, userId: userProfile?.id, companyId });
         return false;
     } finally {
         setIsSubmitting(false);
@@ -92,34 +112,44 @@ const CompanyManager = () => {
   
   const handleRemoveUserFromCompany = async (userIdToRemove, companyId) => {
     if (userIdToRemove === userProfile?.id) {
-       const companyDetails = userCompanies.find(c => c.id === companyId);
+       const companyDetails = userCompanies.find(c => c.company_id === companyId);
        if (companyDetails?.owner_id === userProfile?.id) {
          toast({ title: "Ação não permitida", description: "Você não pode remover a si mesmo como proprietário.", variant: "destructive" });
          return;
        }
     }
+    
+    await logAction({ tag: 'USER_REMOVE_FROM_COMPANY_ATTEMPT', message: `Tentativa de remover usuário da empresa.`, meta: { userIdToRemove }, userId: userProfile?.id, companyId });
 
     try {
         const { error } = await supabase.from('company_users').delete().match({ user_id: userIdToRemove, company_id: companyId });
         if (error) throw error;
         toast({ title: "Usuário Removido", description: "Usuário removido da empresa com sucesso." });
+        await logAction({ tag: 'USER_REMOVE_FROM_COMPANY_SUCCESS', message: `Usuário removido com sucesso.`, meta: { userIdToRemove }, userId: userProfile?.id, companyId });
+        if (typeof refreshAuthData === 'function') {
+          await refreshAuthData(false);
+        }
     } catch (error) {
         console.error("Erro ao remover usuário da empresa:", error);
         toast({ title: "Erro ao Remover", description: error.message, variant: "destructive" });
+        await logAction({ level: 'ERROR', tag: 'USER_REMOVE_FROM_COMPANY_ERROR', message: 'Falha ao remover usuário da empresa.', error, meta: { userIdToRemove }, userId: userProfile?.id, companyId });
     }
   };
 
   const handleSelectCompanyForView = (companyId) => {
-    setSelectedCompanyId(companyId);
+    setSelectedCompanyIdForView(companyId);
   }
 
   const handleConfirmCompanySelection = async () => {
-    if (selectedCompanyId) {
-      await selectCompany(selectedCompanyId);
+    if (selectedCompanyIdForView) {
+      await selectCompany(selectedCompanyIdForView);
+      if (typeof refreshAuthData === 'function') {
+        await refreshAuthData(true);
+      }
     }
   };
 
-  const selectedCompanyDetails = selectedCompanyId ? userCompanies.find(c => c.id === selectedCompanyId) : null;
+  const selectedCompanyDetails = selectedCompanyIdForView ? userCompanies.find(c => c.company_id === selectedCompanyIdForView) : null;
   const showCreateFirstCompany = !userCompanies || userCompanies.length === 0;
 
   return (
@@ -131,15 +161,22 @@ const CompanyManager = () => {
     >
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
+          <h1 className="text-4xl font-bold text-foreground">
             Gerenciamento de Empresas
           </h1>
           <p className="text-muted-foreground mt-1">Crie, gerencie suas empresas e convide membros.</p>
+          <p className="text-sm text-amber-500 mt-1 font-medium">
+            {userCompanies.length}/{companiesLimit === Infinity ? '∞' : companiesLimit} empresas cadastradas.
+            {isAtLimit && " Limite do plano atingido."}
+          </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg">
-              <Plus className="mr-2 h-5 w-5" /> Nova Empresa
+            <Button 
+              disabled={isAtLimit}
+              title={isAtLimit ? `Limite de ${companiesLimit} empresas atingido. Faça upgrade.` : "Nova Empresa"}
+            >
+              <Plus className="mr-2 h-5 w-5" /> Nova Empresa {isAtLimit && <Lock className="ml-1 h-3 w-3"/>}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -163,7 +200,7 @@ const CompanyManager = () => {
                 </p>
             </CardContent>
             <CardFooter className="justify-center">
-                 <Button size="lg" onClick={() => setIsCreateDialogOpen(true)} className="bg-gradient-to-r from-green-500 to-teal-600 text-white">
+                 <Button size="lg" onClick={() => setIsCreateDialogOpen(true)}>
                     <Plus className="mr-2 h-5 w-5" /> Criar Minha Primeira Empresa
                 </Button>
             </CardFooter>
@@ -175,7 +212,8 @@ const CompanyManager = () => {
             <div className="md:col-span-1">
                  <CompanyList 
                     userCompanies={userCompanies}
-                    currentCompanyId={selectedCompanyId}
+                    currentCompanyId={userProfile?.current_company_id} 
+                    selectedCompanyIdForView={selectedCompanyIdForView}
                     onSelectCompany={handleSelectCompanyForView}
                   />
             </div>
@@ -203,14 +241,14 @@ const CompanyManager = () => {
         </div>
       )}
 
-       {!showCreateFirstCompany && selectedCompanyId !== userProfile?.current_company_id && (
+       {!showCreateFirstCompany && selectedCompanyIdForView && selectedCompanyIdForView !== userProfile?.current_company_id && (
          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl p-4 z-50">
           <Card className="bg-background/80 backdrop-blur-lg border-primary shadow-2xl">
             <CardContent className="p-4 flex items-center justify-between">
               <p className="font-semibold">
-                Você selecionou <span className="text-primary">{selectedCompanyDetails?.name}</span>. Deseja definir como sua empresa ativa?
+                Você selecionou <span className="text-primary">{selectedCompanyDetails?.company_name}</span>. Deseja definir como sua empresa ativa?
               </p>
-              <Button onClick={handleConfirmCompanySelection} className="bg-gradient-to-r from-green-500 to-teal-600 text-white">
+              <Button onClick={handleConfirmCompanySelection}>
                 <Check className="mr-2 h-4 w-4"/> Confirmar e Continuar
               </Button>
             </CardContent>

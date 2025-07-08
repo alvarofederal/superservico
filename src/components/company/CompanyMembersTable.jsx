@@ -26,9 +26,14 @@ const CompanyMembersTable = ({ members, isLoading, currentCompanyDetails, userPr
         </TableHeader>
         <TableBody>
           {members.map(member => {
-             const isOwner = member.id === currentCompanyDetails.owner_id;
-             const canBeRemoved = (currentCompanyDetails.owner_id === userProfile.id && !isOwner) ||
-                                (userProfile.role_in_company === 'company_admin' && !isOwner && member.role_in_company !== 'company_admin');
+             const isOwner = member.id === currentCompanyDetails.company_owner_id;
+             const currentUserIsOwner = userProfile.id === currentCompanyDetails.company_owner_id;
+             const currentUserRole = currentCompanyDetails.user_role_in_company;
+             
+             const canCurrentUserManage = ['company_admin', 'company_technician'].includes(currentUserRole);
+             const isTargetManager = ['company_admin', 'company_technician'].includes(member.role_in_company);
+
+             const canBeRemoved = (currentUserIsOwner && !isOwner) || (canCurrentUserManage && !isOwner && !isTargetManager);
 
             return (
               <TableRow key={member.id}>
@@ -50,12 +55,12 @@ const CompanyMembersTable = ({ members, isLoading, currentCompanyDetails, userPr
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Remoção</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja remover {member.full_name} da empresa {currentCompanyDetails.name}?
+                            Tem certeza que deseja remover {member.full_name} da empresa {currentCompanyDetails.company_name}?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onRemoveUser(member.id, currentCompanyDetails.id)} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
+                          <AlertDialogAction onClick={() => onRemoveUser(member.id, currentCompanyDetails.company_id)} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>

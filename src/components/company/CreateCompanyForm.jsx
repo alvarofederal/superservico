@@ -1,8 +1,8 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -31,13 +31,13 @@ const CreateCompanyForm = ({ onSubmit, onCancel, isSubmitting }) => {
           required 
         />
       </div>
-      <DialogFooter className="pt-4">
-        <DialogClose asChild><Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button></DialogClose>
+      <div className="flex justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
         <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-green-500 to-teal-600 text-white">
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Criar Empresa
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 };

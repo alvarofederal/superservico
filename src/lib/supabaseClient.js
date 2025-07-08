@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://iweylscfpsfcmfhorfmr.supabase.co';
@@ -7,7 +8,14 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const createSupabaseClient = () => {
   if (supabaseUrl && supabaseAnonKey) {
     try {
-      return createClient(supabaseUrl, supabaseAnonKey);
+      return createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storage: localStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+        },
+      });
     } catch (error) {
       console.error("Error creating Supabase client:", error);
     }

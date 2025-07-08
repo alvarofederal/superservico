@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -34,54 +35,40 @@
   --input-foreground-light: 220 44% 22%; /* Navy text for inputs */
   --ring-light: 220 90% 65%; 
 
-  /* Dark Theme Variables (can remain as is or be adjusted if you want a different dark mode aesthetic) */
-  --background-dark: 222.2 84% 4.9%; 
-  --foreground-dark: 210 40% 98%; 
-  --card-dark: 220 40% 9%; 
-  --card-foreground-dark: 210 40% 90%; 
+  /* Dark Theme Variables */
+  --background-dark: 222.2 84% 4.9%; /* Dark Blue/Black */
+  --foreground-dark: 210 40% 98%; /* Light Gray/White */
+  
+  --card-dark: 220 40% 9%; /* Slightly lighter Dark Blue/Black for cards */
+  --card-foreground-dark: 210 40% 90%; /* Light Gray for card text */
+  
   --popover-dark: 222.2 84% 4.9%; 
   --popover-foreground-dark: 210 40% 98%; 
-  --primary-dark: 217.2 91.2% 59.8%; 
-  --primary-foreground-dark: 222.2 47.4% 11.2%; 
-  --secondary-dark: 217.2 32.6% 17.5%; 
+  
+  --primary-dark: 217.2 91.2% 59.8%; /* Bright Blue */
+  --primary-foreground-dark: 222.2 47.4% 11.2%; /* Dark text on primary buttons */
+  
+  --secondary-dark: 217.2 32.6% 17.5%; /* Darker Gray Blue */
   --secondary-foreground-dark: 210 40% 98%; 
+  
   --muted-dark: 217.2 32.6% 17.5%; 
-  --muted-foreground-dark: 215 20.2% 65.1%; 
-  --accent-dark: 217.2 32.6% 25%; 
+  --muted-foreground-dark: 215 20.2% 65.1%; /* Medium Gray for muted text */
+  
+  --accent-dark: 217.2 32.6% 25%; /* Slightly Lighter Dark Gray Blue for accents */
   --accent-foreground-dark: 210 40% 98%; 
-  --destructive-dark: 0 62.8% 30.6%; 
+  
+  --destructive-dark: 0 62.8% 30.6%; /* Darker Red */
   --destructive-foreground-dark: 210 40% 98%; 
-  --border-dark: 217.2 32.6% 17.5%; 
-  --input-dark: 217.2 32.6% 17.5%; 
-  --ring-dark: 217.2 91.2% 59.8%; 
+  
+  --border-dark: 217.2 32.6% 17.5%; /* Dark Gray for borders */
+  --input-dark: 217.2 32.6% 17.5%; /* Dark Gray for input backgrounds */
+  --ring-dark: 217.2 91.2% 59.8%; /* Bright Blue for rings */
   
   --radius: 0.5rem; 
 }
 
-/* Default to light theme with white background and navy text */
-html:not(.dark) {
-  --background: var(--background-light);
-  --foreground: var(--foreground-light);
-  --card: var(--card-light);
-  --card-foreground: var(--card-foreground-light);
-  --popover: var(--popover-light);
-  --popover-foreground: var(--popover-foreground-light);
-  --primary: var(--primary-light);
-  --primary-foreground: var(--primary-foreground-light);
-  --secondary: var(--secondary-light);
-  --secondary-foreground: var(--secondary-foreground-light);
-  --muted: var(--muted-light);
-  --muted-foreground: var(--muted-foreground-light);
-  --accent: var(--accent-light);
-  --accent-foreground: var(--accent-foreground-light);
-  --destructive: var(--destructive-light);
-  --destructive-foreground: var(--destructive-foreground-light);
-  --border: var(--border-light);
-  --input: var(--input-light);
-  --ring: var(--ring-light);
-}
-
-.dark {
+/* Default to dark theme if .dark class is present or no class is present */
+html.dark, html:not(.light) {
   --background: var(--background-dark);
   --foreground: var(--foreground-dark);
   --card: var(--card-dark);
@@ -103,6 +90,28 @@ html:not(.dark) {
   --ring: var(--ring-dark);
 }
 
+html.light {
+  --background: var(--background-light);
+  --foreground: var(--foreground-light);
+  --card: var(--card-light);
+  --card-foreground: var(--card-foreground-light);
+  --popover: var(--popover-light);
+  --popover-foreground: var(--popover-foreground-light);
+  --primary: var(--primary-light);
+  --primary-foreground: var(--primary-foreground-light);
+  --secondary: var(--secondary-light);
+  --secondary-foreground: var(--secondary-foreground-light);
+  --muted: var(--muted-light);
+  --muted-foreground: var(--muted-foreground-light);
+  --accent: var(--accent-light);
+  --accent-foreground: var(--accent-foreground-light);
+  --destructive: var(--destructive-light);
+  --destructive-foreground: var(--destructive-foreground-light);
+  --border: var(--border-light);
+  --input: var(--input-light);
+  --ring: var(--ring-light);
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -111,10 +120,46 @@ html:not(.dark) {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-  html:not(.dark) a {
-     /* @apply text-primary hover:text-primary/80; */
+  .prose-headings\:text-foreground h1, 
+  .prose-headings\:text-foreground h2, 
+  .prose-headings\:text-foreground h3, 
+  .prose-headings\:text-foreground h4, 
+  .prose-headings\:text-foreground h5, 
+  .prose-headings\:text-foreground h6 {
+    color: hsl(var(--foreground));
+  }
+  .prose-p\:text-foreground\/90 p {
+    color: hsl(var(--foreground) / 0.9);
+  }
+  .prose-a\:text-primary a {
+    color: hsl(var(--primary));
+    text-decoration: none;
+  }
+  .hover\:prose-a\:text-primary\/80 a:hover {
+    color: hsl(var(--primary) / 0.8);
+  }
+  .prose-strong\:text-foreground strong {
+    color: hsl(var(--foreground));
   }
 }
+
+@layer utilities {
+  @keyframes pulse-intense {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.02);
+    }
+  }
+
+  .animate-pulse-intense {
+    animation: pulse-intense 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
 
 @layer components {
   .gradient-text {
@@ -136,7 +181,7 @@ html:not(.dark) {
   }
 
   .bg-video {
-    position: absolute;
+    position: fixed;
     top: 50%;
     left: 50%;
     min-width: 100%;

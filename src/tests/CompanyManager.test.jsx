@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import CompanyManager from '@/components/CompanyManager';
+import CompanyManager from '@/components/company/CompanyManager';
 import { useAuth }
 from '@/hooks/useAuth';
 import { Toaster } from '@/components/ui/toaster';
